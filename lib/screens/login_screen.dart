@@ -1,5 +1,7 @@
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'register_screen.dart';
 import 'dashboard_screen.dart';
@@ -40,10 +42,39 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      String uid = userCredential.user!.uid;
+
+      DocumentSnapshot userDocument =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .get();
+
+      String role = userDocument.exists
+          ? userDocument.get('role').toString()
+          : '';
+
+      if (role != 'member') {
+        await FirebaseAuth.instance.signOut();
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Access denied. Please use the Municipality Official login.',
+            ),
+          ),
+        );
+
+        return;
+      }
 
       if (!mounted) return;
 
@@ -71,6 +102,16 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to verify your account. Please try again.',
+          ),
         ),
       );
     }
